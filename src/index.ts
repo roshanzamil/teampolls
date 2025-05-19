@@ -11,23 +11,27 @@ import Redis from 'ioredis';
 import { RateLimiterRedis } from 'rate-limiter-flexible';
 import { v4 as uuidv4 } from 'uuid';
 import cron from 'node-cron';
+import { webSocketConnections, webSocketDisconnections } from './utils/metrics';
+
 dotenv.config();
 
 const wss = new WebSocketServer({ port: 4001 });
 export const globalConnections: WebSocket[] = [];
 
 wss.on('connection', (socket: WebSocket) => {
-    console.log('📡 Native WebSocket Connection Established');
-    globalConnections.push(socket);
-  
-    socket.send(JSON.stringify({ message: '👋 Hello from Native WebSocket Server!' }));
-  
-    socket.on('close', () => {
-      console.log('📴 Native WebSocket Connection Closed');
-      const index = globalConnections.indexOf(socket);
-      if (index !== -1) globalConnections.splice(index, 1);
-    });
+  console.log('📡 Native WebSocket Connection Established');
+  globalConnections.push(socket);
+  webSocketConnections.inc();  // Increment on new connection
+
+  socket.send(JSON.stringify({ message: '👋 Hello from Native WebSocket Server!' }));
+
+  socket.on('close', () => {
+    console.log('📴 Native WebSocket Connection Closed');
+    webSocketDisconnections.inc();  // Increment on close
+    const index = globalConnections.indexOf(socket);
+    if (index !== -1) globalConnections.splice(index, 1);
   });
+});
 
 const app = Fastify();
 app.register(cors, { origin: '*' });

@@ -30,31 +30,37 @@ export default function PollDetail() {
     setPrediction(res.data.prediction);
   };
 
-  useEffect(() => {
-    fetchPoll();
-    fetchPrediction();
-    const ws = new WebSocket('ws://localhost:4001');
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.voteUpdate && data.voteUpdate.pollId === parseInt(id || '')) {
-          fetchPoll(); // Refresh poll data on vote update
-            fetchPrediction();
+  
 
-        }
-      } catch (e) {
-        console.error('Error parsing WebSocket message:', e);
+  useEffect(() => {
+    const init = async () => {
+      if (!localStorage.getItem('token')) {
+        const res = await axios.post(`${API_URL}/auth/anon`);
+        localStorage.setItem('token', res.data.token);
       }
-    };
-    const fetchToken = async () => {
-        if (!localStorage.getItem('token')) {
-          const res = await axios.post(`${API_URL}/auth/anon`);
-          localStorage.setItem('token', res.data.token);
+  
+      await fetchPoll();
+      await fetchPrediction();
+  
+      const ws = new WebSocket('ws://localhost:4001');
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.voteUpdate && data.voteUpdate.pollId === parseInt(id || '')) {
+            fetchPoll();
+            fetchPrediction();
+          }
+        } catch (e) {
+          console.error('Error parsing WebSocket message:', e);
         }
       };
-      fetchToken();
-    return () => ws.close();
+  
+      return () => ws.close();
+    };
+  
+    init();
   }, [id]);
+  
 
   const handleVote = async () => {
     try {
